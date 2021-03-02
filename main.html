@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html>
+ <head>
+    <title>BreakBall</title>
+ </head>
+  <body>
+   <p align="center">
+	<!--This draws the Canvas on the webpage -->
+      <canvas id="mycanvas"></canvas>
+   </p>
+ </body>
+
+  <!-- Run all the JavaScript stuff -->
+  <!-- Include the processing.js library -->
+
+ <script src="https://cdn.jsdelivr.net/processing.js/1.4.8/processing.min.js"></script>
+
+ <script>
+    var sketchProc = function(processingInstance) {
+     with (processingInstance) {
+        size(400, 400);
+        frameRate(30);
+
+        // ProgramCodeGoesHere
+/*
+    This is a break ball program
+    Use the left and right arrow keys to move the paddle
+
+    Created by Miles Davis
+*/
+
+/*******************
+*Ball Object Type
+********************/
+var Ball = function(x, y, width, height, speed) {
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
+    this.speed = speed;
+    this.speedY = random(4, sqrt(speed));
+
+    if (round(random(0, 1)) === 0) {
+        this.speedX = sqrt(speed - sq(this.speedY));
+    } else {
+        this.speedX = -sqrt(speed - sq(this.speedY));
+    }
+};
+
+Ball.prototype.show = function() {
+    ellipse(this.x, this.y, this.width, this.height);
+};
+
+Ball.prototype.invert = function(paddle) {
+    if (this.x > 400 - this.width / 2) {
+        this.speedX = - this.speedX;
+    } else if (this.x < this.width / 2) {
+        this.speedX = - this.speedX;
+    } else if (this.y < this.height / 2) {
+        this.speedY = - this.speedY;
+    } else if (this.y > paddle.y - this.height / 2 && this.y < paddle.y + paddle.height - this.height / 2 && this.x > paddle.x - this.width && this.x < paddle.x + paddle.width + this.width) {
+        this.speedY = - this.speedY;
+    } else {
+        this.speedY = - this.speedY;
+    }
+};
+
+Ball.prototype.invertY = function() {
+    this.speedY = - this.speedY;
+};
+
+Ball.prototype.invertX = function() {
+    this.speedX = - this.speedX;
+};
+
+/*******************
+*Paddle Object Type
+********************/
+var Paddle = function(x, y, width, height) {
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
+};
+
+Paddle.prototype.show = function() {
+    rect(this.x, this.y, this.width, this.height);
+};
+
+/*******************
+*Block Object Type
+********************/
+var Block = function(isVisible, x, y, width, height) {
+    this.isVisible = isVisible;
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
+};
+
+Block.prototype.delete = function() {
+    this.isVisible = false;
+
+    // Set the fill to the background color, to mimic disappearance
+    fill(147, 238, 245);
+    rect(this.x, this.y, this.width, this.height);
+
+    // Set the fill back to the default of the blocks
+    fill(227, 134, 134);
+};
+
+Block.prototype.show = function() {
+    if (this.isVisible) {
+        rect(this.x, this.y, this.width, this.height);
+    }
+};
+
+/*******************
+*Powerup Object Type
+********************/
+
+var Powerup =  function() {
+    this.x = 0;
+    this.y = 0;
+    this.height = 25;
+    this.width = 25;
+};
+
+Powerup.prototype.show = function() {
+    ellipse(this.x, this.y, this.width, this.height);
+
+};
+
+/*******************
+*BallSpeedPowerup Object Type
+********************/
+
+var BallSpeedPowerup =  function(x, y) {
+    fill(244, 252, 0);
+    Powerup.call(this, x, y);
+};
+
+BallSpeedPowerup.prototype = Object.create(Powerup.prototype);
+
+BallSpeedPowerup.prototype.show = function() {
+    fill(255, 221, 0);
+    Powerup.prototype.show.call(this);
+    fill(0, 0, 0);
+    text("S", this.x - 6, this.y + 6.5);
+};
+
+/*******************
+*EndBanner Object Type
+********************/
+var EndBanner = function(text, subtext) {
+    this.text = text;
+    this.subtext = subtext;
+    this.x = 98;
+    this.y = -100;
+    this.width = 213;
+    this.height = 97;
+};
+
+var LoseBanner = function(text, subtext) {
+    EndBanner.call(this, text, subtext);
+};
+
+LoseBanner.prototype.show = function() {
+
+    rect(this.x, this.y, this.width, this.height);
+    fill(0, 0, 0);
+    textSize(40);
+    text(this.text, this.x + 3, this.y + 49);
+    textSize(17.5);
+    text(this.subtext, this.x + 41, this.y + 77);
+};
+
+var WinBanner = function(text, subtext) {
+    EndBanner.call(this, text, subtext);
+};
+
+WinBanner.prototype.show = function() {
+    rect(this.x, this.y, this.width, this.height);
+    fill(0, 0, 0);
+    textSize(40);
+    text(this.text, this.x + 20, this.y + 49);
+    textSize(17.5);
+    text(this.subtext, this.x + 28, this.y + 77);
+};
+
+/*******************
+*Helper Functions
+*******************/
+
+var createCloud = function(x, y) {
+    fill(255, 250, 250);
+    ellipse(x, y, 81, 52);
+    ellipse(x + 41, y, 46, 38);
+    ellipse(x - 10, y + 5, 73, 38);
+    ellipse(x - 17, y - 6, 46, 38);
+    ellipse(x + 25, y - 6, 46, 38);
+    ellipse(x + 25, y + 7, 46, 38);
+};
+
+/*******************
+*MAIN PROGRAM
+********************/
+
+/** Initialize objects and variables **/
+var ball = new Ball(200, 258, 10, 10, 25);
+var paddle = new Paddle(175, 363, 40, 10);
+var loseBanner = new LoseBanner("YOU LOSE", "Press r to restart");
+var winBanner = new WinBanner("YOU WIN", "Press r to play again");
+var blockWidth = 20;
+var rows = 5;
+var blockArray = [];
+var ballSpeedPowerup = new BallSpeedPowerup();
+var ballSpeedPowerupIndex = round(random(0, 99));
+var showBallSpeedPowerup = false;
+var soundIsOn =  true;
+var dayToNightRate = 0.01;
+var cloudRate1 = 0.125;
+var cloudRate2 = 0.2;
+var cloudX1 = 70;
+var cloudX2 = 292;
+var r = 147;
+var g = 238;
+var b = 245;
+var counter = 0;
+for (var j = 0; j < rows; j++) {
+   for (var i = 0; i < (400) / blockWidth; i++) {
+      blockArray[counter] = new Block(true, i * blockWidth, j * blockWidth, 20, 20);
+        counter++;
+    }
+}
+
+/** Define the reset() function for the initial values **/
+var reset = function() {
+    ball = new Ball(200, 258, 10, 10, 25);
+    paddle = new Paddle(175, 363, 40, 10);
+    loseBanner = new LoseBanner("YOU LOSE", "Press r to restart");
+    winBanner = new WinBanner("YOU WIN", "Press r to play again");
+    blockWidth = 20;
+    rows = 5;
+    blockArray = [];
+    ballSpeedPowerup = new BallSpeedPowerup();
+    ballSpeedPowerupIndex = round(random(0, 99));
+    showBallSpeedPowerup = false;
+    soundIsOn =  true;
+    dayToNightRate = 0.02;
+    cloudRate1 = 0.125;
+    cloudRate2 = 0.2;
+    cloudX1 = 70;
+    cloudX2 = 292;
+    r = 147;
+    g = 238;
+    b = 245;
+    counter = 0;
+    for (var j = 0; j < rows; j++) {
+        for (var i = 0; i < (400) / blockWidth; i++) {
+            blockArray[counter] = new Block(true, i * blockWidth, j * blockWidth, 20, 20);
+        counter++;
+        }
+    }
+};
+
+
+draw = function() {
+    /** Set the background, the block objects, and the clouds **/
+    r = r - dayToNightRate;
+    g = g - dayToNightRate;
+    b = b - dayToNightRate;
+    background(r, g, b);
+
+    stroke(r, g, b);
+    createCloud(cloudX1, 200);
+    createCloud(cloudX2, 272);
+
+    cloudX1 += cloudRate1;
+    if (cloudX1 > 450) {
+        cloudX1 = -100;
+    }
+
+    cloudX2 += cloudRate2;
+    if (cloudX2 > 450) {
+        cloudX2 = -100;
+    }
+
+
+
+    stroke(0, 0, 0);
+    fill(96, 163, 123);
+    rect(0, 388, 401, 100);
+
+    fill(227, 134, 134);
+
+    // Iterate over the block array and show them on the screen
+    for (var i = 0; i < blockArray.length; i++) {
+        blockArray[i].show();
+    }
+
+
+
+    /** Show the paddle and set the key conditions **/
+    fill(168, 76, 222);
+    paddle.show();
+    if (keyPressed && keyCode === RIGHT) {
+        paddle.x += 10;
+        if (paddle.x >= 400 - paddle.width) {
+            paddle.x = 400 - paddle.width;
+        }
+    }
+    if (keyPressed && keyCode === LEFT) {
+        paddle.x -= 10;
+        if (paddle.x <= 0) {
+            paddle.x = 0;
+        }
+    }
+
+
+
+    /** Show the ball, set it in motion, and define all of the collision conditions **/
+    fill(0, 34, 255);
+    ball.show();
+    ball.x += ball.speedX;
+    ball.y += ball.speedY;
+
+    // Test for collision against vertical walls
+    if (ball.x < ball.width / 2 || ball.x > 400 - (ball.width / 2)) {
+        ball.invert(paddle);
+        playSound(getSound("retro/hit1"));
+    }
+
+    // Test for collision against paddle
+    if (ball.y > paddle.y - ball.height / 2 && ball.y < paddle.y + paddle.height - ball.height / 2 && ball.x > paddle.x - ball.width && ball.x < paddle.x + paddle.width + ball.width) {
+        ball.invert(paddle);
+        playSound(getSound("rpg/hit-thud"));
+    }
+
+    // Test for collision against bricks, and delete the bricks when hit
+    for (var i = 0; i < blockArray.length; i++) {
+        if (((ball.y < blockArray[i].y + blockArray[i].height && ball.y > blockArray[i].y + blockArray[i].height - 5) || (ball.y > blockArray[i].y && ball.y < blockArray[i].y - 5)) && (ball.x > blockArray[i].x && ball.x < blockArray[i].x + blockArray[i].width)) {
+            if (blockArray[i].isVisible) {
+                blockArray[i].delete();
+                ball.invertY();
+                playSound(getSound("retro/hit2"));
+
+                if (i === ballSpeedPowerupIndex) {
+                    showBallSpeedPowerup = true;
+                    ballSpeedPowerup.y = blockArray[i].y + blockArray[i].height / 2;
+                    ballSpeedPowerup.x = blockArray[i].x + blockArray[i].width / 2;
+                    playSound(getSound("retro/coin"));
+                }
+            }
+        } else if ((ball.x > blockArray[i].x && ball.x < blockArray[i].x + blockArray[i].width) && ((ball.y < blockArray[i].y + blockArray[i].height) && (ball.y > blockArray[i].y))) {
+            if (blockArray[i].isVisible) {
+                blockArray[i].delete();
+                ball.invertX();
+                playSound(getSound("retro/hit2"));
+
+                if (i === ballSpeedPowerupIndex) {
+                    showBallSpeedPowerup = true;
+                    ballSpeedPowerup.y = blockArray[i].y + blockArray[i].height / 2;
+                    ballSpeedPowerup.x = blockArray[i].x + blockArray[i].width / 2;
+                    playSound(getSound("retro/coin"));
+                }
+            }
+        }
+    }
+
+    fill(255, 0, 0);
+    if (showBallSpeedPowerup) {
+        ballSpeedPowerup.show();
+        ballSpeedPowerup.y += 1;
+    }
+
+    if (ballSpeedPowerup.y > paddle.y - ballSpeedPowerup.height / 2 && ballSpeedPowerup.y < paddle.y + paddle.height - ballSpeedPowerup.height / 2 && ballSpeedPowerup.x > paddle.x && ballSpeedPowerup.x < paddle.x + paddle.width) {
+
+        if (soundIsOn) {
+            playSound(getSound("rpg/battle-magic"));
+            soundIsOn = false;
+            ball.speedX = ball.speedX * 0.75;
+            ball.speedY = ball.speedY * 0.75;
+        }
+        showBallSpeedPowerup =  false;
+
+    }
+
+    /** Set end game conditions **/
+
+    // If the ball falls below the paddle, display the losing message
+    if (ball.y > 450) {
+        fill(240, 62, 62);
+        loseBanner.show();
+        if (loseBanner.y <= 169) {
+            loseBanner.y += 5;
+        }
+        ball.x = 200;
+    }
+
+    // If the ball proceeds past the bricks, display the winning message
+    if (ball.y < -50) {
+        fill(72, 219, 124);
+        winBanner.show();
+        if (winBanner.y <= 169) {
+            winBanner.y += 5;
+        }
+        ball.x = 200;
+    }
+
+    /** Set reset condition for the "r" key **/
+    if (keyPressed && key.toString() === "r") {
+        reset();
+    }
+
+};
+
+
+
+    }};
+
+    // Get the canvas that Processing-js will use
+    var canvas = document.getElementById("mycanvas");
+    // Pass the function sketchProc (defined in myCode.js) to Processing's constructor.
+    var processingInstance = new Processing(canvas, sketchProc);
+ </script>
+
+</html>
